@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your details | Tealt</title>
+    <link rel="stylesheet" href="./form.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./form.html" aria-label="Tealt home">
+        <img src="./images/icon-48.png" alt="" />
+        <span>Tealt</span>
+      </a>
+      <div class="saved-state"><span></span> Stored locally</div>
+    </header>
+
+    <main class="page-shell">
+      <aside class="sidebar">
+        <p class="eyebrow">Application profile</p>
+        <h1>Your details, ready when you are.</h1>
+        <p class="sidebar-copy">Complete your profile once and use it to move through applications faster.</p>
+        <nav aria-label="Form sections">
+          <a href="#personal"><span>01</span> Personal</a>
+          <a href="#professional"><span>02</span> Professional</a>
+          <a href="#resume"><span>03</span> Resume</a>
+          <a href="#work"><span>04</span> Work history</a>
+          <a href="#education"><span>05</span> Education</a>
+          <a href="#preferences"><span>06</span> Preferences</a>
+          <a href="#voluntary"><span>07</span> Voluntary</a>
+        </nav>
+        <div class="privacy-note">
+          <strong>Private by design</strong>
+          <p>Your information is saved only in this browser.</p>
+        </div>
+      </aside>
+
+      <section class="form-panel">
+        <div class="form-heading">
+          <div>
+            <p class="eyebrow">Profile setup</p>
+            <h2>Job application details</h2>
+          </div>
+          <p>Fields marked <span aria-hidden="true">*</span> are commonly required.</p>
+        </div>
+
+        <form id="application-profile">
+          <section class="form-section" id="personal">
+            <div class="section-heading"><span>01</span><div><h3>Personal information</h3><p>How employers can identify and contact you.</p></div></div>
+            <div class="fields two-columns">
+              <label>First name *<input name="firstName" autocomplete="given-name" required /></label>
+              <label>Last name *<input name="lastName" autocomplete="family-name" required /></label>
+              <label>Email address *<input name="email" type="email" autocomplete="email" required /></label>
+              <label>Phone number *<input name="phone" type="tel" autocomplete="tel" required /></label>
+              <label class="full">Street address<input name="address" autocomplete="street-address" /></label>
+              <label>City<input name="city" autocomplete="address-level2" /></label>
+              <label>State / province<input name="state" autocomplete="address-level1" /></label>
+              <label>Postal code<input name="postalCode" autocomplete="postal-code" /></label>
+              <label>Country<input name="country" autocomplete="country-name" /></label>
+            </div>
+          </section>
+
+          <section class="form-section" id="professional">
+            <div class="section-heading"><span>02</span><div><h3>Professional profile</h3><p>Your public profile and core qualifications.</p></div></div>
+            <div class="fields two-columns">
+              <label>Current job title<input name="currentTitle" /></label>
+              <label>Years of experience<input name="yearsExperience" type="number" min="0" max="70" /></label>
+              <label>LinkedIn URL<input name="linkedin" type="url" placeholder="https://linkedin.com/in/..." /></label>
+              <label>Portfolio / website<input name="portfolio" type="url" placeholder="https://" /></label>
+              <label>GitHub URL<input name="github" type="url" placeholder="https://github.com/..." /></label>
+              <label>Highest education<select name="education"><option value="">Select one</option><option>High school</option><option>Associate degree</option><option>Bachelor's degree</option><option>Master's degree</option><option>Doctorate</option><option>Other</option></select></label>
+              <label class="full">Professional summary<textarea name="summary" rows="4" placeholder="A short overview of your experience, strengths, and goals..."></textarea></label>
+              <label class="full">Core skills<input name="skills" placeholder="Product design, JavaScript, project management..." /></label>
+            </div>
+          </section>
+
+          <section class="form-section" id="resume">
+            <div class="section-heading"><span>03</span><div><h3>Resume</h3><p>Keep your current resume ready for job applications.</p></div></div>
+            <div class="resume-upload">
+              <input id="resume-file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+              <label class="upload-dropzone" for="resume-file">
+                <span class="upload-icon" aria-hidden="true">&#8593;</span>
+                <span><strong>Choose your resume</strong><small>PDF, DOC, or DOCX up to 5 MB</small></span>
+              </label>
+              <div class="resume-file" id="resume-file-details" hidden>
+                <span class="file-badge" aria-hidden="true">CV</span>
+                <span class="file-copy"><strong id="resume-file-name"></strong><small id="resume-file-size"></small></span>
+                <button id="remove-resume" type="button">Remove</button>
+              </div>
+              <p class="upload-message" id="resume-message" role="status" aria-live="polite"></p>
+            </div>
+          </section>
+
+          <section class="form-section" id="work">
+            <div class="section-heading"><span>04</span><div><h3>Work history</h3><p>Add as many previous positions as you need.</p></div></div>
+            <div class="repeat-list" id="work-list"></div>
+            <button class="add-button" id="add-work" type="button"><span aria-hidden="true">+</span> Add work experience</button>
+          </section>
+
+          <section class="form-section" id="education">
+            <div class="section-heading"><span>05</span><div><h3>Education</h3><p>Add each school, university, certification, or training program.</p></div></div>
+            <div class="repeat-list" id="education-list"></div>
+            <button class="add-button" id="add-education" type="button"><span aria-hidden="true">+</span> Add education</button>
+          </section>
+
+          <section class="form-section" id="preferences">
+            <div class="section-heading"><span>06</span><div><h3>Work preferences</h3><p>Availability, eligibility, and role preferences.</p></div></div>
+            <div class="fields two-columns">
+              <label>Desired salary<input name="salary" inputmode="decimal" placeholder="$" /></label>
+              <label>Available start date<input name="startDate" type="date" /></label>
+              <label>Preferred work setting<select name="workSetting"><option value="">Select one</option><option>Remote</option><option>Hybrid</option><option>On-site</option><option>Flexible</option></select></label>
+              <label>Employment type<select name="employmentType"><option value="">Select one</option><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Internship</option><option>Temporary</option></select></label>
+              <label>Authorized to work in this country?<select name="workAuthorized"><option value="">Select one</option><option>Yes</option><option>No</option></select></label>
+              <label>Require visa sponsorship?<select name="sponsorship"><option value="">Select one</option><option>Yes</option><option>No</option><option>Not currently</option></select></label>
+              <label>Willing to relocate?<select name="relocate"><option value="">Select one</option><option>Yes</option><option>No</option><option>Maybe</option></select></label>
+              <label>Willing to travel?<select name="travel"><option value="">Select one</option><option>Yes</option><option>No</option><option>Occasionally</option></select></label>
+            </div>
+          </section>
+
+          <section class="form-section" id="voluntary">
+            <div class="section-heading"><span>07</span><div><h3>Voluntary self-identification</h3><p>Optional details commonly requested for equal opportunity reporting.</p></div></div>
+            <div class="fields two-columns">
+              <label>Gender<select name="gender"><option value="">Prefer not to say</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Self-describe</option></select></label>
+              <label>Race / ethnicity<input name="ethnicity" placeholder="Optional" /></label>
+              <label>Veteran status<select name="veteran"><option value="">Prefer not to say</option><option>I am a protected veteran</option><option>I am not a protected veteran</option></select></label>
+              <label>Disability status<select name="disability"><option value="">Prefer not to say</option><option>Yes</option><option>No</option></select></label>
+            </div>
+          </section>
+
+          <div class="form-actions">
+            <p id="save-message" role="status" aria-live="polite"></p>
+            <button class="save-button" type="submit">Save my details <span aria-hidden="true">&#8594;</span></button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <template id="work-template">
+      <article class="repeat-card">
+        <div class="repeat-card-heading">
+          <div><span class="entry-label">Work experience</span><h4>Position <span class="entry-number"></span></h4></div>
+          <button class="remove-button" type="button" aria-label="Remove this work experience">Remove</button>
+        </div>
+        <div class="fields two-columns">
+          <label>Employer / company<input data-field="employer" autocomplete="organization" /></label>
+          <label>Job title<input data-field="jobTitle" autocomplete="organization-title" /></label>
+          <label>Work phone number<input data-field="workPhone" type="tel" /></label>
+          <label>Direct supervisor<input data-field="supervisor" /></label>
+          <label class="full">Work street address<input data-field="workAddress" /></label>
+          <label>Work city<input data-field="workCity" /></label>
+          <label>Work state / province<input data-field="workState" /></label>
+          <label>Work postal code<input data-field="workPostalCode" /></label>
+          <label>Work country<input data-field="workCountry" /></label>
+          <label>Start date<input data-field="jobStart" type="month" /></label>
+          <label>End date<input data-field="jobEnd" type="month" /></label>
+          <label class="full">Key responsibilities and achievements<textarea data-field="achievements" rows="4"></textarea></label>
+        </div>
+      </article>
+    </template>
+
+    <template id="education-template">
+      <article class="repeat-card">
+        <div class="repeat-card-heading">
+          <div><span class="entry-label">Education</span><h4>School <span class="entry-number"></span></h4></div>
+          <button class="remove-button" type="button" aria-label="Remove this education entry">Remove</button>
+        </div>
+        <div class="fields two-columns">
+          <label>School / institution<input data-field="school" autocomplete="organization" /></label>
+          <label>Degree or credential<input data-field="degree" /></label>
+          <label>Field of study<input data-field="fieldOfStudy" /></label>
+          <label>Graduation date<input data-field="graduationDate" type="month" /></label>
+          <label class="full">School street address<input data-field="schoolAddress" /></label>
+          <label>School city<input data-field="schoolCity" /></label>
+          <label>School state / province<input data-field="schoolState" /></label>
+          <label>School postal code<input data-field="schoolPostalCode" /></label>
+          <label>School country<input data-field="schoolCountry" /></label>
+        </div>
+      </article>
+    </template>
+
+    <script src="./form.js"></script>
+  </body>
+</html>

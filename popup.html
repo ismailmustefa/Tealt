@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tealt</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header>
+        <img class="logo" src="./images/icon-48.png" alt="Tealt logo" /> Tealt
+      </header>
+
+      <section class="intro" aria-labelledby="intro-title">
+        <div class="status">
+          <span class="status-dot" aria-hidden="true"></span>
+          Ready to fill
+        </div>
+        <h2 id="intro-title">Make forms effortless.</h2>
+        <p>Fill the current page in one click, or update your saved details first.</p>
+      </section>
+
+      <div class="actions">
+        <button class="button button-primary" id="autofill-button" type="button">
+          <span>Autofill page</span>
+          <span class="button-icon" aria-hidden="true">&#8594;</span>
+        </button>
+        <button class="button button-secondary" id="update-details-button" type="button">
+          <span class="refresh-icon" aria-hidden="true">&#8635;</span>
+          <span>Update details</span>
+        </button>
+      </div>
+
+      <footer>
+        <span class="privacy-icon" aria-hidden="true">&#9670;</span>
+        Your information stays private
+      </footer>
+    </main>
+
+    <script src="./scripts/autofill.js"></script>
+    <script src="./popup.js" type="module"></script>
+  </body>
+</html>
