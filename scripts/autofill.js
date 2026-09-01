@@ -1,6 +1,15 @@
 (() => {
+  // Avoid registering duplicate message handlers when popup.js injects this
+  // file into a tab that already received the manifest content script.
+  if (globalThis.__tealtAutofillLoaded) return;
+  globalThis.__tealtAutofillLoaded = true;
+
   const STORAGE_KEY = "tealtApplicationProfile";
+
+  /** Converts labels, names, and values into comparable search text. */
   const normalize = (value) => String(value ?? "").toLowerCase().replace(/[_\-\[\]()/:*]+/g, " ").replace(/\s+/g, " ").trim();
+
+  // Common labels used by native and third-party applicant tracking systems.
   const aliases = {
     firstName: ["first name", "given name", "firstname", "given-name"], lastName: ["last name", "family name", "surname", "lastname", "family-name"],
     email: ["email", "email address", "e-mail"], phone: ["phone", "phone number", "mobile", "telephone", "tel"],
@@ -25,6 +34,7 @@
     schoolState: ["school state"], schoolPostalCode: ["school postal code", "school zip"], schoolCountry: ["school country"],
   };
 
+  /** Builds a searchable description from a control and its accessible labels. */
   function descriptor(element) {
     const labels = element.labels ? [...element.labels].map((label) => label.innerText) : [];
     const labelled = (element.getAttribute("aria-labelledby") || "").split(/\s+/).map((id) => document.getElementById(id)?.innerText || "");
@@ -33,6 +43,7 @@
       ...labels, ...labelled, container?.querySelector("legend")?.innerText, container?.querySelector("label")?.innerText].filter(Boolean).join(" "));
   }
 
+  /** Flattens the saved profile into values and the field names they can match. */
   function profileEntries(profile) {
     const result = Object.entries(aliases).filter(([key]) => profile[key] !== undefined && profile[key] !== "")
       .map(([key, names]) => ({ value: profile[key], names: [key, ...names].map(normalize) }));
@@ -42,12 +53,14 @@
     return result;
   }
 
+  /** Returns the highest-scoring saved-profile match for a page control. */
   function bestMatch(element, entries) {
     const text = descriptor(element);
     return entries.map((entry) => ({ entry, score: Math.max(...entry.names.map((name) => text === name ? 100 : text.includes(name) ? 60 + Math.min(name.length, 30) : 0)) }))
       .sort((a, b) => b.score - a.score)[0];
   }
 
+  /** Sets a native control value in a way observed by framework event handlers. */
   function setValue(element, value) {
     const proto = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
@@ -56,11 +69,13 @@
     element.dataset.tealtFilled = "true";
   }
 
+  /** Adapts the stored ISO date to a date or month input when necessary. */
   function dateValue(element, value) {
     const match = String(value).match(/^(\d{4})-(\d{2})(?:-(\d{2}))?/); if (!match) return value;
     if (element.type === "month") return `${match[1]}-${match[2]}`; if (element.type === "date") return `${match[1]}-${match[2]}-${match[3] || "01"}`; return value;
   }
 
+  /** Fills a standard input, textarea, select, checkbox, or radio control. */
   function fillNative(element, value) {
     if (element.disabled || element.readOnly || value === "" || value == null) return false;
     if (!["radio", "checkbox"].includes(element.type) && element.value) return false;
@@ -80,6 +95,7 @@
     setValue(element, dateValue(element, value)); return true;
   }
 
+  /** Fills ARIA-based comboboxes and other custom application controls. */
   async function fillCustom(element, value) {
     if (element.dataset.tealtFilled || element.getAttribute("aria-disabled") === "true") return false;
     element.click(); element.focus();
@@ -93,6 +109,7 @@
     element.dataset.tealtFilled = "true"; return true;
   }
 
+  /** Recreates the stored resume and assigns it to the first compatible input. */
   async function attachResume(resume) {
     if (!resume?.data) return false;
     const input = [...document.querySelectorAll('input[type="file"]')].find((item) => !item.disabled && !item.files?.length && (!item.accept || /pdf|doc|word/i.test(item.accept)));
@@ -101,6 +118,7 @@
     input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); return true;
   }
 
+  /** Fills all empty matching controls on the current page. */
   async function autofill() {
     const stored = await chrome.storage.local.get(STORAGE_KEY); const profile = stored[STORAGE_KEY];
     if (!profile) throw new Error("Save your details in Tealt before using autofill."); const entries = profileEntries(profile); let filled = 0;
@@ -113,6 +131,7 @@
     if (await attachResume(profile.resume).catch(() => false)) filled += 1; return filled;
   }
 
+  // Keep the asynchronous response channel open until autofill completes.
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message?.type !== "TEALT_AUTOFILL") return undefined;
     autofill().then((filled) => respond({ ok: true, filled })).catch((error) => respond({ ok: false, error: error.message })); return true;

@@ -10,6 +10,7 @@ const resumeMessage = document.querySelector("#resume-message");
 const removeResumeButton = document.querySelector("#remove-resume");
 let savedResume = null;
 
+// DOM references for repeatable employment and education sections.
 const repeaters = {
   work: {
     list: document.querySelector("#work-list"),
@@ -23,6 +24,7 @@ const repeaters = {
   },
 };
 
+/** Updates visible numbering and storage-compatible field names after edits. */
 function renumberEntries(type) {
   const cards = [...repeaters[type].list.querySelectorAll(".repeat-card")];
 
@@ -34,6 +36,7 @@ function renumberEntries(type) {
   });
 }
 
+/** Adds one repeatable work or education card, optionally with saved values. */
 function addEntry(type, values = {}) {
   const repeater = repeaters[type];
   const card = repeater.template.content.firstElementChild.cloneNode(true);
@@ -51,6 +54,7 @@ function addEntry(type, values = {}) {
   renumberEntries(type);
 }
 
+/** Serializes every card in a repeatable section. */
 function collectEntries(type) {
   return [...repeaters[type].list.querySelectorAll(".repeat-card")].map((card) =>
     Object.fromEntries(
@@ -59,6 +63,7 @@ function collectEntries(type) {
   );
 }
 
+/** Creates the complete profile object persisted in extension-local storage. */
 function collectProfile() {
   const profile = {};
 
@@ -72,10 +77,12 @@ function collectProfile() {
   return profile;
 }
 
+/** Formats a byte count for the resume summary. */
 function formatFileSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+/** Synchronizes the resume model and its upload/summary UI. */
 function showResume(resume) {
   savedResume = resume;
   resumeDetails.hidden = !resume;
@@ -84,6 +91,7 @@ function showResume(resume) {
   resumeSize.textContent = resume ? `${formatFileSize(resume.size)} · Saved in Chrome` : "";
 }
 
+/** Reads an uploaded file into a storage-safe data URL. */
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -93,6 +101,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
+/** Validates and stages a newly selected resume for the next profile save. */
 resumeInput.addEventListener("change", async () => {
   const file = resumeInput.files[0];
   resumeMessage.textContent = "";
@@ -119,12 +128,14 @@ resumeInput.addEventListener("change", async () => {
   }
 });
 
+/** Clears the staged resume; persistence occurs when the profile is saved. */
 removeResumeButton.addEventListener("click", () => {
   resumeInput.value = "";
   showResume(null);
   resumeMessage.textContent = "Resume removed. Save your details to confirm.";
 });
 
+/** Restores saved scalar fields, resume data, and repeatable history entries. */
 async function restoreProfile() {
   const result = await chrome.storage.local.get(storageKey);
   const savedProfile = result[storageKey] ?? {};
