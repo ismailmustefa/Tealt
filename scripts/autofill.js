@@ -13,7 +13,9 @@
   const aliases = {
     firstName: ["first name", "given name", "firstname", "given-name"], lastName: ["last name", "family name", "surname", "lastname", "family-name"],
     email: ["email", "email address", "e-mail"], phone: ["phone", "phone number", "mobile", "telephone", "tel"],
-    address: ["street address", "address line 1", "address1", "mailing address"], city: ["city", "town", "locality"],
+    address1: ["address 1", "address line 1", "address1", "street address", "street address line 1", "mailing address"],
+    address2: ["address 2", "address line 2", "address2", "street address line 2", "apartment", "apartment suite", "apt suite", "unit"],
+    city: ["city", "town", "locality"],
     state: ["state", "province", "region", "address-level1"], postalCode: ["postal code", "zip code", "zipcode", "postcode", "postal-code"],
     country: ["country", "country name", "country-name"], currentTitle: ["current job title", "current title", "professional title", "headline"],
     yearsExperience: ["years of experience", "years experience", "total experience"], linkedin: ["linkedin", "linkedin url", "linkedin profile"],
@@ -23,7 +25,10 @@
     startDate: ["available start date", "start date", "date available", "availability date"], workSetting: ["preferred work setting", "work setting", "workplace type", "remote preference"],
     employmentType: ["employment type", "job type", "position type"], workAuthorized: ["authorized to work", "work authorization", "legally authorized", "eligible to work"],
     sponsorship: ["visa sponsorship", "require sponsorship", "sponsorship"], relocate: ["willing to relocate", "relocation", "relocate"], travel: ["willing to travel", "travel"],
-    gender: ["gender", "gender identity", "sex"], ethnicity: ["race", "ethnicity", "race ethnicity"], veteran: ["veteran", "veteran status"], disability: ["disability", "disability status"],
+    gender: ["gender", "gender identity", "sex"],
+    ethnicity: ["ethnicity", "hispanic or latino", "hispanic latino", "are you hispanic", "latino origin", "ethnic origin"],
+    race: ["race", "racial group", "racial background", "race category"],
+    veteran: ["veteran", "veteran status"], disability: ["disability", "disability status"],
   };
   const repeatAliases = {
     employer: ["employer", "company", "organization"], jobTitle: ["job title", "position title", "role"], workPhone: ["work phone", "company phone"], supervisor: ["supervisor", "manager"],
@@ -34,19 +39,60 @@
     schoolState: ["school state"], schoolPostalCode: ["school postal code", "school zip"], schoolCountry: ["school country"],
   };
 
+  /** Returns text referenced by an ARIA id-list attribute. */
+  function ariaText(element, attribute) {
+    return (element.getAttribute(attribute) || "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((id) => document.getElementById(id)?.innerText || "")
+      .filter(Boolean);
+  }
+
+  /**
+   * Finds the nearest reasonably sized block of visible question text. Form
+   * builders often render labels as nested divs instead of semantic labels.
+   */
+  function nearbyQuestionText(element) {
+    const text = [];
+    let ancestor = element.parentElement;
+
+    for (let depth = 0; ancestor && depth < 5; depth += 1, ancestor = ancestor.parentElement) {
+      const candidate = ancestor.innerText?.trim();
+      if (candidate && candidate.length <= 500) text.push(candidate);
+    }
+
+    return text;
+  }
+
   /** Builds a searchable description from a control and its accessible labels. */
   function descriptor(element) {
     const labels = element.labels ? [...element.labels].map((label) => label.innerText) : [];
-    const labelled = (element.getAttribute("aria-labelledby") || "").split(/\s+/).map((id) => document.getElementById(id)?.innerText || "");
     const container = element.closest("label, fieldset, [role=group], [class*=field], [class*=question]");
-    return normalize([element.name, element.id, element.autocomplete, element.placeholder, element.getAttribute("aria-label"), element.getAttribute("data-testid"),
-      ...labels, ...labelled, container?.querySelector("legend")?.innerText, container?.querySelector("label")?.innerText].filter(Boolean).join(" "));
+    return normalize([
+      element.name,
+      element.id,
+      element.type,
+      element.autocomplete,
+      element.placeholder,
+      element.getAttribute("aria-label"),
+      element.getAttribute("data-testid"),
+      element.getAttribute("data-automation-id"),
+      ...labels,
+      ...ariaText(element, "aria-labelledby"),
+      ...ariaText(element, "aria-describedby"),
+      container?.querySelector("legend")?.innerText,
+      container?.querySelector("label")?.innerText,
+      ...nearbyQuestionText(element),
+    ].filter(Boolean).join(" "));
   }
 
   /** Flattens the saved profile into values and the field names they can match. */
   function profileEntries(profile) {
     const result = Object.entries(aliases).filter(([key]) => profile[key] !== undefined && profile[key] !== "")
       .map(([key, names]) => ({ value: profile[key], names: [key, ...names].map(normalize) }));
+    if (!profile.address1 && profile.address) {
+      result.push({ value: profile.address, names: ["address1", ...aliases.address1].map(normalize) });
+    }
     [profile.work?.[0], profile.educationHistory?.[0]].filter(Boolean).forEach((record) => Object.entries(record).forEach(([key, value]) => {
       if (value !== undefined && value !== "" && repeatAliases[key]) result.push({ value, names: repeatAliases[key].map(normalize) });
     }));
@@ -58,6 +104,86 @@
     const text = descriptor(element);
     return entries.map((entry) => ({ entry, score: Math.max(...entry.names.map((name) => text === name ? 100 : text.includes(name) ? 60 + Math.min(name.length, 30) : 0)) }))
       .sort((a, b) => b.score - a.score)[0];
+  }
+
+  /** Returns the best saved field whose alias appears in a visible text node. */
+  function bestTextMatch(text, entries) {
+    const normalizedText = normalize(text);
+    if (!normalizedText) return undefined;
+
+    return entries
+      .map((entry) => ({
+        entry,
+        score: Math.max(...entry.names.map((name) =>
+          normalizedText === name ? 100 : normalizedText.includes(name) ? 70 + Math.min(name.length, 20) : 0)),
+      }))
+      .sort((a, b) => b.score - a.score)[0];
+  }
+
+  /** Whether a control is an empty, editable autofill target. */
+  function isAvailableControl(element) {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return false;
+    if (element.disabled || element.readOnly || element.dataset.tealtFilled) return false;
+    if (element instanceof HTMLInputElement && ["hidden", "file", "submit", "button", "reset", "image"].includes(element.type)) return false;
+    return ["radio", "checkbox"].includes(element.type) || !element.value;
+  }
+
+  /**
+   * Finds the closest usable form control in the label's local DOM region.
+   * Explicit label associations win, followed by descendants and nearby
+   * siblings, before progressively checking small ancestor containers.
+   */
+  function closestControl(textElement) {
+    const label = textElement.closest("label");
+    if (label?.control && isAvailableControl(label.control)) return label.control;
+
+    const selector = 'input:not([type="hidden"]):not([type="file"]), textarea, select';
+    const nested = textElement.querySelector?.(selector);
+    if (isAvailableControl(nested)) return nested;
+
+    let sibling = textElement.nextElementSibling;
+    for (let offset = 0; sibling && offset < 3; offset += 1, sibling = sibling.nextElementSibling) {
+      if (isAvailableControl(sibling)) return sibling;
+      const insideSibling = sibling.querySelector?.(selector);
+      if (isAvailableControl(insideSibling)) return insideSibling;
+    }
+
+    let container = textElement.parentElement;
+    for (let depth = 0; container && depth < 4; depth += 1, container = container.parentElement) {
+      const controls = [...container.querySelectorAll(selector)].filter(isAvailableControl);
+      if (controls.length === 1) return controls[0];
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Scans visible text throughout the page and fills the closest control for
+   * every recognized profile label. This supports forms without semantic
+   * labels, useful names, ARIA metadata, or predictable CSS classes.
+   */
+  function fillByVisibleText(entries) {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent || !node.textContent.trim() || parent.closest("script, style, noscript, template, [hidden], [aria-hidden=true]")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return parent.getClientRects().length ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
+    let filled = 0;
+    let node;
+
+    while ((node = walker.nextNode())) {
+      const match = bestTextMatch(node.textContent, entries);
+      if (!match || match.score < 70) continue;
+
+      const control = closestControl(node.parentElement);
+      if (control && fillNative(control, match.entry.value)) filled += 1;
+    }
+
+    return filled;
   }
 
   /** Sets a native control value in a way observed by framework event handlers. */
@@ -128,6 +254,7 @@
     for (const control of document.querySelectorAll('[role="combobox"], [role="listbox"]')) {
       const match = bestMatch(control, entries); if (match?.score >= 60 && await fillCustom(control, match.entry.value)) filled += 1;
     }
+    filled += fillByVisibleText(entries);
     if (await attachResume(profile.resume).catch(() => false)) filled += 1; return filled;
   }
 

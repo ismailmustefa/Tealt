@@ -52,7 +52,8 @@
               <label>Last name *<input name="lastName" autocomplete="family-name" required /></label>
               <label>Email address *<input name="email" type="email" autocomplete="email" required /></label>
               <label>Phone number *<input name="phone" type="tel" autocomplete="tel" required /></label>
-              <label class="full">Street address<input name="address" autocomplete="street-address" /></label>
+              <label class="full" for="address-line-1">Address 1<input id="address-line-1" name="address1" autocomplete="address-line1" /></label>
+              <label class="full" for="address-line-2">Address 2<input id="address-line-2" name="address2" autocomplete="address-line2" /></label>
               <label>City<input name="city" autocomplete="address-level2" /></label>
               <label>State / province<input name="state" autocomplete="address-level1" /></label>
               <label>Postal code<input name="postalCode" autocomplete="postal-code" /></label>
@@ -121,7 +122,8 @@
             <div class="section-heading"><span>07</span><div><h3>Voluntary self-identification</h3><p>Optional details commonly requested for equal opportunity reporting.</p></div></div>
             <div class="fields two-columns">
               <label>Gender<select name="gender"><option value="">Prefer not to say</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Self-describe</option></select></label>
-              <label>Race / ethnicity<input name="ethnicity" placeholder="Optional" /></label>
+              <label>Are you Hispanic or Latino?<select name="ethnicity"><option value="">Prefer not to answer</option><option>Yes, Hispanic or Latino</option><option>No, not Hispanic or Latino</option></select></label>
+              <label>Race<select name="race"><option value="">Prefer not to answer</option><option>American Indian or Alaska Native</option><option>Asian</option><option>Black or African American</option><option>Native Hawaiian or Other Pacific Islander</option><option>White</option><option>Two or more races</option></select></label>
               <label>Veteran status<select name="veteran"><option value="">Prefer not to say</option><option>I am a protected veteran</option><option>I am not a protected veteran</option></select></label>
               <label>Disability status<select name="disability"><option value="">Prefer not to say</option><option>Yes</option><option>No</option></select></label>
             </div>

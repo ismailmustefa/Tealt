@@ -142,7 +142,15 @@ async function restoreProfile() {
   showResume(savedProfile.resume ?? null);
 
   form.querySelectorAll("input:not([data-field]), select:not([data-field]), textarea:not([data-field])").forEach((field) => {
-    if (field.name && savedProfile[field.name] !== undefined) field.value = savedProfile[field.name];
+    if (!field.name) return;
+
+    // Profiles saved before address lines were separated used the `address`
+    // key. Restore that value into Address 1 without losing existing data.
+    if (field.name === "address1" && savedProfile.address1 === undefined && savedProfile.address !== undefined) {
+      field.value = savedProfile.address;
+    } else if (savedProfile[field.name] !== undefined) {
+      field.value = savedProfile[field.name];
+    }
   });
 
   const savedWork = savedProfile.work?.length
