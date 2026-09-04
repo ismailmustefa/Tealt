@@ -38,6 +38,20 @@
     fieldOfStudy: ["field of study", "major", "discipline"], graduationDate: ["graduation date", "graduated"], schoolAddress: ["school address"], schoolCity: ["school city"],
     schoolState: ["school state"], schoolPostalCode: ["school postal code", "school zip"], schoolCountry: ["school country"],
   };
+  const repeatSections = {
+    work: {
+      recordsKey: "work",
+      anchorKey: "employer",
+      sectionNames: ["work experience", "work history", "employment history", "experience"],
+      addNames: ["add work experience", "add experience", "add employment", "add another position", "add another job"],
+    },
+    education: {
+      recordsKey: "educationHistory",
+      anchorKey: "school",
+      sectionNames: ["education", "education history", "academic background"],
+      addNames: ["add education", "add school", "add another school", "add education history"],
+    },
+  };
 
   /** Returns text referenced by an ARIA id-list attribute. */
   function ariaText(element, attribute) {
@@ -93,10 +107,128 @@
     if (!profile.address1 && profile.address) {
       result.push({ value: profile.address, names: ["address1", ...aliases.address1].map(normalize) });
     }
-    [profile.work?.[0], profile.educationHistory?.[0]].filter(Boolean).forEach((record) => Object.entries(record).forEach(([key, value]) => {
-      if (value !== undefined && value !== "" && repeatAliases[key]) result.push({ value, names: repeatAliases[key].map(normalize) });
-    }));
     return result;
+  }
+
+  /** Returns true when an element is rendered and available for interaction. */
+  function isVisible(element) {
+    return Boolean(element?.getClientRects().length) && element.getAttribute("aria-hidden") !== "true";
+  }
+
+  /** Scores normalized text against a collection of field or button aliases. */
+  function aliasScore(text, names) {
+    const normalizedText = normalize(text);
+    return Math.max(...names.map((name) => {
+      const normalizedName = normalize(name);
+      if (normalizedText === normalizedName) return 100;
+      return normalizedText.includes(normalizedName) ? 60 + Math.min(normalizedName.length, 30) : 0;
+    }));
+  }
+
+  /** Finds page controls matching a repeated-record field such as employer. */
+  function repeatedControls(names) {
+    return [...document.querySelectorAll('input:not([type="hidden"]):not([type="file"]), textarea, select, [role="combobox"], [contenteditable="true"]')]
+      .filter((control) => isVisible(control) && aliasScore(descriptor(control), names) >= 60);
+  }
+
+  /** Finds a narrowly identified add button for one repeatable section. */
+  function findAddButton(config) {
+    const candidates = [...document.querySelectorAll('button, input[type="button"], input[type="submit"], [role="button"]')]
+      .filter((button) => isVisible(button) && !button.disabled && button.getAttribute("aria-disabled") !== "true");
+
+    const explicit = candidates.find((button) => aliasScore([
+      button.innerText,
+      button.value,
+      button.getAttribute("aria-label"),
+      button.title,
+    ].filter(Boolean).join(" "), config.addNames) >= 60);
+    if (explicit) return explicit;
+
+    // Some systems label every repeater button only "Add" or "Add another".
+    // Accept those only when a nearby container clearly names the section.
+    return candidates.find((button) => {
+      const buttonText = normalize(`${button.innerText || ""} ${button.value || ""} ${button.getAttribute("aria-label") || ""}`);
+      if (!/^(add|add another|new|create new)$/.test(buttonText)) return false;
+
+      let container = button.parentElement;
+      for (let depth = 0; container && depth < 4; depth += 1, container = container.parentElement) {
+        const text = container.innerText || "";
+        if (text.length <= 1000 && aliasScore(text, config.sectionNames) >= 60) return true;
+      }
+      return false;
+    });
+  }
+
+  /** Waits briefly for a repeater click to add another matching control. */
+  function waitForAdditionalControl(anchorNames, previousCount) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (added) => {
+        if (settled) return;
+        settled = true;
+        observer.disconnect();
+        clearTimeout(timeoutId);
+        resolve(added);
+      };
+      const observer = new MutationObserver(() => {
+        if (repeatedControls(anchorNames).length > previousCount) finish(true);
+      });
+      const timeoutId = setTimeout(() => finish(repeatedControls(anchorNames).length > previousCount), 1500);
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  }
+
+  /** Expands a work or education repeater until it has one group per record. */
+  async function expandRepeatSection(config, desiredCount) {
+    const anchorNames = repeatAliases[config.anchorKey];
+    let currentCount = repeatedControls(anchorNames).length;
+    let added = 0;
+
+    while (currentCount < desiredCount) {
+      const addButton = findAddButton(config);
+      if (!addButton) break;
+
+      addButton.click();
+      if (!await waitForAdditionalControl(anchorNames, currentCount)) break;
+      currentCount = repeatedControls(anchorNames).length;
+      added += 1;
+    }
+
+    return added;
+  }
+
+  /** Fills a native or custom control used by a repeated record. */
+  async function fillRepeatedControl(control, value) {
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) {
+      return fillNative(control, value);
+    }
+    return fillCustom(control, value);
+  }
+
+  /** Expands and fills every saved record in a repeatable page section. */
+  async function fillRepeatSection(profile, config) {
+    const records = (profile[config.recordsKey] || []).filter((record) =>
+      record && Object.values(record).some((value) => value !== undefined && value !== ""));
+    if (!records.length) return 0;
+
+    let filled = 0;
+
+    for (let recordIndex = 0; recordIndex < records.length; recordIndex += 1) {
+      await expandRepeatSection(config, recordIndex + 1);
+      const record = records[recordIndex];
+      for (const [key, value] of Object.entries(record)) {
+        if (value === undefined || value === "" || !repeatAliases[key]) continue;
+        const controls = repeatedControls(repeatAliases[key]);
+        const control = controls[recordIndex];
+        if (control && await fillRepeatedControl(control, value)) filled += 1;
+      }
+
+      // Yield between records so large histories do not block the page.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (globalThis.scheduler?.yield) await globalThis.scheduler.yield();
+    }
+
+    return filled;
   }
 
   /** Returns the highest-scoring saved-profile match for a page control. */
@@ -248,6 +380,8 @@
   async function autofill() {
     const stored = await chrome.storage.local.get(STORAGE_KEY); const profile = stored[STORAGE_KEY];
     if (!profile) throw new Error("Save your details in Tealt before using autofill."); const entries = profileEntries(profile); let filled = 0;
+    filled += await fillRepeatSection(profile, repeatSections.work);
+    filled += await fillRepeatSection(profile, repeatSections.education);
     for (const control of document.querySelectorAll('input:not([type=hidden]):not([type=file]):not([role=combobox]), textarea:not([role=combobox]), select')) {
       const match = bestMatch(control, entries); if (match?.score >= 60 && fillNative(control, match.entry.value)) filled += 1;
     }
