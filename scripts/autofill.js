@@ -110,6 +110,46 @@
     return result;
   }
 
+  /** Builds values for controls that request several saved fields at once. */
+  function combinedValues(profile) {
+    const address1 = profile.address1 || profile.address;
+    return {
+      name: [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim(),
+      address: [address1, profile.address2].filter(Boolean).join(", ").trim(),
+    };
+  }
+
+  /** Uses only the control's own identifiers and labels, not neighboring questions. */
+  function controlIdentity(element) {
+    const labels = element.labels ? [...element.labels].map((label) => label.innerText) : [];
+    return normalize([
+      element.name, element.id, element.placeholder,
+      element.getAttribute("aria-label"), element.getAttribute("data-testid"),
+      element.getAttribute("data-automation-id"),
+      ...labels, ...ariaText(element, "aria-labelledby"),
+    ].filter(Boolean).join(" "));
+  }
+
+  /** Identifies a single field intended for a combined name or street address. */
+  function combinedField(element, labelText = controlIdentity(element)) {
+    const autocomplete = (element.autocomplete || "").toLowerCase().split(/\s+/);
+    if (autocomplete.includes("name")) return "name";
+    if (autocomplete.includes("street-address")) return "address";
+    if (autocomplete.some((token) => ["given-name", "family-name", "additional-name", "address-line1", "address-line2", "address-line3"].includes(token))) return undefined;
+
+    const text = normalize(labelText);
+    if (/\b(first|last|given|family|middle|preferred|company|business|school|employer|organization|supervisor|user)\s+name\b|\bsurname\b/.test(text)) return undefined;
+    if (/\b(full|legal|your|applicant|candidate) name\b|\bfullname\b|^(?:name\s*)+$/.test(text)) return "name";
+    if (/\b(address\s*(?:line\s*)?[123]|apartment|suite|unit|city|state|province|postal|zip|country|work address|school address)\b/.test(text)) return undefined;
+    if (/\b(full|complete|street|mailing|home|shipping|billing) address\b|\bstreetaddress\b|^(?:address\s*)+$/.test(text)) return "address";
+    return undefined;
+  }
+
+  function combinedMatch(element, values, labelText) {
+    const field = combinedField(element, labelText);
+    return field && values[field] ? { entry: { value: values[field] }, score: 100 } : undefined;
+  }
+
   /** Returns true when an element is rendered and available for interaction. */
   function isVisible(element) {
     return Boolean(element?.getClientRects().length) && element.getAttribute("aria-hidden") !== "true";
@@ -294,7 +334,7 @@
    * every recognized profile label. This supports forms without semantic
    * labels, useful names, ARIA metadata, or predictable CSS classes.
    */
-  function fillByVisibleText(entries) {
+  function fillByVisibleText(entries, combined) {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = node.parentElement;
@@ -308,10 +348,10 @@
     let node;
 
     while ((node = walker.nextNode())) {
-      const match = bestTextMatch(node.textContent, entries);
-      if (!match || match.score < 70) continue;
-
       const control = closestControl(node.parentElement);
+      const match = control && combinedMatch(control, combined, node.textContent)
+        || bestTextMatch(node.textContent, entries);
+      if (!match || match.score < 70) continue;
       if (control && fillNative(control, match.entry.value)) filled += 1;
     }
 
@@ -379,16 +419,16 @@
   /** Fills all empty matching controls on the current page. */
   async function autofill() {
     const stored = await chrome.storage.local.get(STORAGE_KEY); const profile = stored[STORAGE_KEY];
-    if (!profile) throw new Error("Save your details in Tealt before using autofill."); const entries = profileEntries(profile); let filled = 0;
+    if (!profile) throw new Error("Save your details in Tealt before using autofill."); const entries = profileEntries(profile); const combined = combinedValues(profile); let filled = 0;
     filled += await fillRepeatSection(profile, repeatSections.work);
     filled += await fillRepeatSection(profile, repeatSections.education);
     for (const control of document.querySelectorAll('input:not([type=hidden]):not([type=file]):not([role=combobox]), textarea:not([role=combobox]), select')) {
-      const match = bestMatch(control, entries); if (match?.score >= 60 && fillNative(control, match.entry.value)) filled += 1;
+      const match = combinedMatch(control, combined) || bestMatch(control, entries); if (match?.score >= 60 && fillNative(control, match.entry.value)) filled += 1;
     }
     for (const control of document.querySelectorAll('[role="combobox"], [role="listbox"]')) {
-      const match = bestMatch(control, entries); if (match?.score >= 60 && await fillCustom(control, match.entry.value)) filled += 1;
+      const match = combinedMatch(control, combined) || bestMatch(control, entries); if (match?.score >= 60 && await fillCustom(control, match.entry.value)) filled += 1;
     }
-    filled += fillByVisibleText(entries);
+    filled += fillByVisibleText(entries, combined);
     if (await attachResume(profile.resume).catch(() => false)) filled += 1; return filled;
   }
 

@@ -42,7 +42,11 @@ function addEntry(type, values = {}) {
   const card = repeater.template.content.firstElementChild.cloneNode(true);
 
   card.querySelectorAll("[data-field]").forEach((field) => {
-    field.value = values[field.dataset.field] ?? "";
+    const value = values[field.dataset.field] ?? "";
+    if (field instanceof HTMLSelectElement && value && ![...field.options].some((option) => option.value === value)) {
+      field.add(new Option(value, value));
+    }
+    field.value = value;
   });
 
   card.querySelector(".remove-button").addEventListener("click", () => {

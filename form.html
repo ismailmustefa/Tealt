@@ -168,7 +168,19 @@
         </div>
         <div class="fields two-columns">
           <label>School / institution<input data-field="school" autocomplete="organization" /></label>
-          <label>Degree or credential<input data-field="degree" /></label>
+          <label>Degree type
+            <select data-field="degree">
+              <option value="">Select one</option>
+              <option>High school diploma or GED</option>
+              <option>Associate degree</option>
+              <option>Bachelor's degree</option>
+              <option>Master's degree</option>
+              <option>Doctorate</option>
+              <option>Professional degree</option>
+              <option>Certificate or credential</option>
+              <option>Other</option>
+            </select>
+          </label>
           <label>Field of study<input data-field="fieldOfStudy" /></label>
           <label>Graduation date<input data-field="graduationDate" type="month" /></label>
           <label class="full">School street address<input data-field="schoolAddress" /></label>
